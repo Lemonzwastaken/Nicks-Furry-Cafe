@@ -1,3 +1,4 @@
+
 # Folder structure
 
 - `src` - source code for your kaboom project
@@ -19,6 +20,7 @@ $ npm run build
 ```
 
 will build your js files into `www/main.js`
+
 
 ```sh
 $ npm run bundle
