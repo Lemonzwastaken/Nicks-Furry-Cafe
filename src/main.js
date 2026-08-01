@@ -5,124 +5,79 @@ const k = kaboom({
 	crisp: true, // keep pixel art tiles sharp when stretched
 })
 
-// Sprite sheet, 9x3 grid of 67x104 frames (front/back/side walk poses).
-// Frame 0 = clean front-facing standing pose, used as the static portrait for now.
-k.loadSprite("nick", "sprites/nick.png", { sliceX: 9, sliceY: 3 })
-const NICK_FRAME = 0
+// Static Nick portrait (single image, not a sliced sheet).
+k.loadSprite("nick", "sprites/nick.png")
+
+// Food/drink icon sheet, 5x5 grid of 32x32 icons.
+k.loadSprite("food", "sprites/food.png", { sliceX: 5, sliceY: 5 })
+const FOOD_FRAME_COUNT = 25
 
 // Kenney "UI Pack: Pixel Adventure" tilesheet, 13x7 grid of 32x32 tiles.
 // Frame indices found by inspecting the sheet (row * 13 + col):
-//   0  = cream panel   1  = brown panel   2  = light-blue panel
-//   21 = green-corner accent panel (used as a hover/selected highlight)
 //   69 = horizontal bar (used as a button background)
 k.loadSprite("panels", "assets/ui/panels.png", { sliceX: 13, sliceY: 7 })
 
 k.loadSound("click", "assets/audio/click.ogg")
 k.loadSound("rollover", "assets/audio/rollover.ogg")
 
-const PANEL_FRAME = {
-	cream: 0,
-	brown: 1,
-	lightBlue: 2,
-	hover: 21,
-}
-
 const BAR_FRAME = 69
 
-const CHARACTERS = [
-	{ id: "a", label: "A", key: "1", altKey: "a", panelFrame: PANEL_FRAME.cream },
-	{ id: "b", label: "B", key: "2", altKey: "b", panelFrame: PANEL_FRAME.brown },
-	{ id: "c", label: "C", key: "3", altKey: "c", panelFrame: PANEL_FRAME.lightBlue },
-]
-
-let chosenCharacter = CHARACTERS[0]
-
-k.scene("select", () => {
+k.scene("title", () => {
 	k.add([
-		k.text("Choose your character", { size: 32 }),
-		k.pos(k.width() / 2, 70),
+		k.text("Nick's Furry Cafe", { size: 40 }),
+		k.pos(k.width() / 2, k.height() / 2 - 100),
 		k.anchor("center"),
 	])
 
-	k.add([
-		k.text("Click a card, or press 1/2/3", { size: 16 }),
-		k.pos(k.width() / 2, 110),
-		k.anchor("center"),
-		k.color(200, 200, 200),
-	])
-
-	const cardWidth = 160
-	const cardHeight = 200
-	const spacing = 200
-	const startX = k.width() / 2 - spacing
-	const cardY = k.height() / 2
-
-	function pickCharacter(character) {
-		k.play("click")
-		chosenCharacter = character
-		k.go("game")
-	}
-
-	CHARACTERS.forEach((character, i) => {
-		const x = startX + i * spacing
-
-		const card = k.add([
-			k.sprite("panels", { frame: character.panelFrame, width: cardWidth, height: cardHeight }),
-			k.pos(x, cardY),
+	function makeMenuButton(label, y, onClick) {
+		const button = k.add([
+			k.sprite("panels", { frame: BAR_FRAME, width: 160, height: 48 }),
+			k.pos(k.width() / 2, y),
 			k.anchor("center"),
 			k.area(),
-			k.scale(1),
-			"characterCard",
 		])
 
-		card.add([
-			k.sprite("nick", { frame: NICK_FRAME }),
-			k.pos(0, -30),
-			k.anchor("center"),
-			k.scale(1.4),
-		])
-
-		card.add([
-			k.text(character.label, { size: 48 }),
-			k.pos(0, 60),
+		button.add([
+			k.text(label, { size: 20 }),
 			k.anchor("center"),
 			k.color(20, 20, 20),
 		])
 
-		card.onHoverUpdate(() => {
-			card.scaleTo(1.08)
-			card.frame = PANEL_FRAME.hover
-			k.setCursor("pointer")
+		button.onHoverUpdate(() => k.setCursor("pointer"))
+		button.onHover(() => k.play("rollover", { volume: 0.5 }))
+		button.onClick(() => {
+			k.play("click")
+			onClick()
 		})
 
-		card.onHoverEnd(() => {
-			card.scaleTo(1)
-			card.frame = character.panelFrame
-		})
+		return button
+	}
 
-		card.onHover(() => {
-			k.play("rollover", { volume: 0.5 })
-		})
-
-		card.onClick(() => pickCharacter(character))
-
-		k.onKeyPress(character.key, () => pickCharacter(character))
-		k.onKeyPress(character.altKey, () => pickCharacter(character))
-	})
+	makeMenuButton("Start", k.height() / 2, () => k.go("game"))
+	makeMenuButton("Stop", k.height() / 2 + 64, () => k.quit())
 })
 
 k.scene("game", () => {
 	k.add([
-		k.text(`Playing as: ${chosenCharacter.label}`, { size: 24 }),
+		k.text("Nick's Furry Cafe", { size: 24 }),
 		k.pos(20, 20),
 	])
 
+	// Nick tucked in the corner, out of the way of the food display.
 	k.add([
-		k.sprite("nick", { frame: NICK_FRAME }),
-		k.pos(k.width() / 2, k.height() / 2),
-		k.anchor("center"),
-		k.scale(2),
+		k.sprite("nick", { width: 90, height: 180 }),
+		k.pos(k.width() - 20, k.height() - 20),
+		k.anchor("botright"),
 	])
+
+	// Scatter random food/drink icons around as cafe decoration.
+	for (let i = 0; i < 12; i++) {
+		k.add([
+			k.sprite("food", { frame: k.randi(0, FOOD_FRAME_COUNT - 1), width: 48, height: 48 }),
+			k.pos(k.rand(40, k.width() - 140), k.rand(80, k.height() - 60)),
+			k.anchor("center"),
+		])
+	}
 
 	const backButton = k.add([
 		k.sprite("panels", { frame: BAR_FRAME, width: 120, height: 40 }),
@@ -141,7 +96,7 @@ k.scene("game", () => {
 
 	function goBack() {
 		k.play("click")
-		k.go("select")
+		k.go("title")
 	}
 
 	backButton.onHoverUpdate(() => k.setCursor("pointer"))
@@ -152,4 +107,4 @@ k.scene("game", () => {
 	k.onClick(() => k.addKaboom(k.mousePos()))
 })
 
-k.go("select")
+k.go("title")
