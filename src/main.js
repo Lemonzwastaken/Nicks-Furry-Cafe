@@ -5,6 +5,9 @@ const k = kaboom({
 	crisp: true, // keep pixel art tiles sharp when stretched
 })
 
+// Cafe backdrop, stretched to fill the canvas behind everything else.
+k.loadSprite("bg", "assets/background.png")
+
 // Static Nick portrait (single image, not a sliced sheet).
 k.loadSprite("nick", "sprites/nick.png")
 
@@ -23,6 +26,11 @@ k.loadSound("rollover", "assets/audio/rollover.ogg")
 const BAR_FRAME = 69
 
 k.scene("title", () => {
+	k.add([
+		k.sprite("bg", { width: k.width(), height: k.height() }),
+		k.pos(0, 0),
+	])
+
 	k.add([
 		k.text("Nick's Furry Cafe", { size: 40 }),
 		k.pos(k.width() / 2, k.height() / 2 - 100),
@@ -58,6 +66,11 @@ k.scene("title", () => {
 })
 
 k.scene("game", () => {
+	k.add([
+		k.sprite("bg", { width: k.width(), height: k.height() }),
+		k.pos(0, 0),
+	])
+
 	k.add([
 		k.text("Nick's Furry Cafe", { size: 24 }),
 		k.pos(20, 20),
