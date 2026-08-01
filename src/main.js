@@ -5,7 +5,10 @@ const k = kaboom({
 	crisp: true, // keep pixel art tiles sharp when stretched
 })
 
-k.loadSprite("bean", "sprites/bean.png")
+// Sprite sheet, 9x3 grid of 67x104 frames (front/back/side walk poses).
+// Frame 0 = clean front-facing standing pose, used as the static portrait for now.
+k.loadSprite("nick", "sprites/nick.png", { sliceX: 9, sliceY: 3 })
+const NICK_FRAME = 0
 
 // Kenney "UI Pack: Pixel Adventure" tilesheet, 13x7 grid of 32x32 tiles.
 // Frame indices found by inspecting the sheet (row * 13 + col):
@@ -26,7 +29,6 @@ const PANEL_FRAME = {
 
 const BAR_FRAME = 69
 
-// Placeholder characters until real sprites (Nick, etc) are added.
 const CHARACTERS = [
 	{ id: "a", label: "A", key: "1", altKey: "a", panelFrame: PANEL_FRAME.cream },
 	{ id: "b", label: "B", key: "2", altKey: "b", panelFrame: PANEL_FRAME.brown },
@@ -74,7 +76,7 @@ k.scene("select", () => {
 		])
 
 		card.add([
-			k.sprite("bean"),
+			k.sprite("nick", { frame: NICK_FRAME }),
 			k.pos(0, -30),
 			k.anchor("center"),
 			k.scale(1.4),
@@ -116,7 +118,7 @@ k.scene("game", () => {
 	])
 
 	k.add([
-		k.sprite("bean"),
+		k.sprite("nick", { frame: NICK_FRAME }),
 		k.pos(k.width() / 2, k.height() / 2),
 		k.anchor("center"),
 		k.scale(2),
