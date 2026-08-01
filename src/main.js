@@ -5,10 +5,8 @@ const k = kaboom({
 	crisp: true, // keep pixel art tiles sharp when stretched
 })
 
-// Sprite sheet, 9x3 grid of 67x104 frames (front/back/side walk poses).
-// Frame 0 = clean front-facing standing pose, used as the static portrait for now.
-k.loadSprite("nick", "sprites/nick.png", { sliceX: 9, sliceY: 3 })
-const NICK_FRAME = 0
+// Static Nick portrait (single image, not a sliced sheet).
+k.loadSprite("nick", "sprites/nick.png")
 
 // Kenney "UI Pack: Pixel Adventure" tilesheet, 13x7 grid of 32x32 tiles.
 // Frame indices found by inspecting the sheet (row * 13 + col):
@@ -36,6 +34,41 @@ const CHARACTERS = [
 ]
 
 let chosenCharacter = CHARACTERS[0]
+
+k.scene("title", () => {
+	k.add([
+		k.text("Nick's Furry Cafe", { size: 40 }),
+		k.pos(k.width() / 2, k.height() / 2 - 100),
+		k.anchor("center"),
+	])
+
+	function makeMenuButton(label, y, onClick) {
+		const button = k.add([
+			k.sprite("panels", { frame: BAR_FRAME, width: 160, height: 48 }),
+			k.pos(k.width() / 2, y),
+			k.anchor("center"),
+			k.area(),
+		])
+
+		button.add([
+			k.text(label, { size: 20 }),
+			k.anchor("center"),
+			k.color(20, 20, 20),
+		])
+
+		button.onHoverUpdate(() => k.setCursor("pointer"))
+		button.onHover(() => k.play("rollover", { volume: 0.5 }))
+		button.onClick(() => {
+			k.play("click")
+			onClick()
+		})
+
+		return button
+	}
+
+	makeMenuButton("Start", k.height() / 2, () => k.go("select"))
+	makeMenuButton("Stop", k.height() / 2 + 64, () => k.quit())
+})
 
 k.scene("select", () => {
 	k.add([
@@ -76,10 +109,9 @@ k.scene("select", () => {
 		])
 
 		card.add([
-			k.sprite("nick", { frame: NICK_FRAME }),
+			k.sprite("nick", { width: 75, height: 150 }),
 			k.pos(0, -30),
 			k.anchor("center"),
-			k.scale(1.4),
 		])
 
 		card.add([
@@ -118,10 +150,9 @@ k.scene("game", () => {
 	])
 
 	k.add([
-		k.sprite("nick", { frame: NICK_FRAME }),
+		k.sprite("nick", { width: 110, height: 220 }),
 		k.pos(k.width() / 2, k.height() / 2),
 		k.anchor("center"),
-		k.scale(2),
 	])
 
 	const backButton = k.add([
@@ -152,4 +183,4 @@ k.scene("game", () => {
 	k.onClick(() => k.addKaboom(k.mousePos()))
 })
 
-k.go("select")
+k.go("title")
