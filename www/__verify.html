@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head><title>verify</title></head>
+<body>
+<script>
+// Verification-only shims (temporary file, deleted after testing).
+Object.defineProperty(document, "hidden", { configurable: true, get: function () { return false; } });
+Object.defineProperty(document, "visibilityState", { configurable: true, get: function () { return "visible"; } });
+;(function () {
+	var orig = HTMLCanvasElement.prototype.getContext;
+	HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+		if (type === "webgl" || type === "webgl2" || type === "experimental-webgl") {
+			attrs = Object.assign({}, attrs, { preserveDrawingBuffer: true });
+		}
+		return orig.call(this, type, attrs);
+	};
+})();
+// Throttled + self-limiting: ~20fps and stops driving after ~12s so later
+// navigation/cleanup isn't starved by a runaway loop.
+var __ticks = 0;
+window.requestAnimationFrame = function (cb) {
+	if (__ticks > 240) return 0;
+	__ticks++;
+	return setTimeout(function () { cb(performance.now()); }, 50);
+};
+window.cancelAnimationFrame = function (id) { clearTimeout(id); };
+window.__revive = function () { __ticks = 0; }; // reset the budget on demand
+window.__VERIFY__ = true;
+// On-demand single-frame grab (no continuous loop, to keep the tab responsive).
+window.__grab = function (scale) {
+	var src = document.querySelector("canvas");
+	var w = Math.round(960 * (scale || 0.5)), h = Math.round(540 * (scale || 0.5));
+	var off = document.createElement("canvas"); off.width = w; off.height = h;
+	off.getContext("2d").drawImage(src, 0, 0, w, h);
+	return off.toDataURL("image/png");
+};
+</script>
+<script src="main.js?v=6"></script>
+</body>
+</html>

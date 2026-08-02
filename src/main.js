@@ -10,6 +10,9 @@ const k = kaboom({
 	crisp: true, // keep the pixel art sharp when stretched
 })
 
+// TEMP verification hook (guarded; removed after testing).
+if (typeof window !== "undefined" && window.__VERIFY__) window.__k = k
+
 // Cafe backdrop, stretched to fill the canvas behind everything else.
 // The art already paints the kitchen counter (top-left), the couches
 // (bottom) and the door (right), so the gameplay is laid out to match it.
@@ -24,8 +27,15 @@ k.loadSprite("food", "sprites/food.png", { sliceX: 5, sliceY: 5 })
 // Kenney "UI Pack" tilesheet; frame 69 is a horizontal bar used as a button bg.
 k.loadSprite("panels", "assets/ui/panels.png", { sliceX: 13, sliceY: 7 })
 
-// Placeholder customer sprite.
-k.loadBean()
+// Kitchen appliances (320x320 art sitting inside transparent padding).
+k.loadSprite("oven", "assets/oven.png")
+k.loadSprite("coffee", "assets/coffee.png")
+
+// The three regulars. These are downscaled copies of the photos in assets/
+// (the originals are ~12MP — far too big to push to the GPU as-is).
+k.loadSprite("arjav", "sprites/arjav.png")
+k.loadSprite("neon", "sprites/neon.png")
+k.loadSprite("aaradhya", "sprites/aaradhya.png")
 
 k.loadSound("click", "assets/audio/click.ogg")
 k.loadSound("rollover", "assets/audio/rollover.ogg")
@@ -42,6 +52,23 @@ const RECIPES = {
 	pastry: { frame: PASTRY_FRAME, label: "Pastry", price: 12 },
 }
 
+// The cafe's three regulars. Only these three ever visit, one of each at a
+// time — a fresh face only walks in once the previous one has left. `w`/`h`
+// are the on-screen photo size (aspect-preserved from the source pictures).
+const REGULARS = [
+	{ id: "arjav", w: 42, h: 56 },
+	{ id: "neon", w: 56, h: 42 },
+	{ id: "aaradhya", w: 56, h: 42 },
+]
+
+// oven.png / coffee.png are 320x320 with the actual appliance sitting inside a
+// transparent margin. These boxes locate that art within the image so we can
+// center the *visible* appliance (not the padded frame) on the counter.
+const APPLIANCE_ART = {
+	oven: { cx: 150, cy: 175, h: 210 },
+	coffee: { cx: 110, cy: 195, h: 190 },
+}
+
 // ---------------------------------------------------------------------------
 // Title
 // ---------------------------------------------------------------------------
@@ -56,7 +83,7 @@ k.scene("title", () => {
 	])
 
 	k.add([
-		k.text("Nick's Furry Cafe", { size: 40 }),
+		k.text("Nick's Furry Cafe :3", { size: 40 }),
 		k.pos(k.width() / 2, k.height() / 2 - 120),
 		k.anchor("center"),
 	])
@@ -104,11 +131,11 @@ k.scene("title", () => {
 k.scene("game", () => {
 	// --- Layout constants (960 x 540 logical space) -----------------------
 	// Coordinates are tuned to sit on top of the background art:
-	//   * KITCHEN  -> inside the red-bordered L-counter, top-left
+	//   * KITCHEN  -> the tiled floor inside the red-bordered L-counter
 	//   * QUEUE    -> the open floor just to the right of the counter
 	//   * SEATS    -> the two yellow couches along the bottom
 	//   * DOOR     -> the doorway on the right-hand wall
-	const KITCHEN = { x1: 40, y1: 100, x2: 445, y2: 282 }
+	const KITCHEN = { x1: 95, y1: 100, x2: 465, y2: 290 }
 	const NICK_SPEED = 210
 	const NICK_HALF = k.vec2(24, 48) // half-extents used to clamp Nick in the kitchen
 
@@ -116,7 +143,8 @@ k.scene("game", () => {
 	const QUEUE_X = 530
 	const QUEUE_Y0 = 125
 	const QUEUE_GAP = 78
-	const MAX_QUEUE = 4
+	// Only the three regulars exist, so at most three are ever on screen at once.
+	const MAX_CUSTOMERS = REGULARS.length
 
 	// Doorway on the right wall that customers enter and leave through.
 	const DOOR_POS = k.vec2(930, 195)
@@ -133,44 +161,35 @@ k.scene("game", () => {
 	k.add([k.sprite("bg", { width: k.width(), height: k.height() }), k.pos(0, 0)])
 
 	// --- Appliances (cooking stations) ------------------------------------
-	// Not present in the art, so they are drawn as little appliance boxes that
-	// show the icon of the dish they produce.
-	function makeStation(recipeKey, name, x, y, bodyColor, accentColor) {
-		const recipe = RECIPES[recipeKey]
+	// Real oven / coffee-machine sprites, sat on the brown countertop that runs
+	// along the top of the kitchen. `center` is the visible appliance centre and
+	// doubles as the point Nick has to stand near to use it.
+	function makeStation(recipeKey, spriteName, name, center, artHeight) {
+		const art = APPLIANCE_ART[spriteName]
+		const scale = artHeight / art.h
+		const boxSize = 320 * scale
+		// The art is off-centre inside its 320px frame; shift so the visible
+		// appliance (not the transparent padding) lands on `center`.
+		const shift = k.vec2((art.cx - 160) * scale, (art.cy - 160) * scale)
 		const station = k.add([
-			k.rect(84, 92, { radius: 6 }),
-			k.pos(x, y),
+			k.sprite(spriteName, { width: boxSize, height: boxSize }),
+			k.pos(center.sub(shift)),
 			k.anchor("center"),
-			k.color(...bodyColor),
-			k.outline(4, k.rgb(34, 32, 40)),
-			k.z(10),
-			{ recipe: recipeKey, center: k.vec2(x, y) },
+			k.z(6),
+			{ recipe: recipeKey, center: center },
 		])
-		// A little front "window/screen" so it reads as an appliance.
-		station.add([
-			k.rect(60, 26, { radius: 4 }),
-			k.pos(0, 20),
-			k.anchor("center"),
-			k.color(...accentColor),
-		])
-		// Icon of what it makes.
-		station.add([
-			k.sprite("food", { frame: recipe.frame, width: 34, height: 34 }),
-			k.anchor("center"),
-			k.pos(0, -14),
-		])
-		// Appliance name plate.
+		// Name plate, tucked just under the appliance.
 		station.add([
 			k.text(name, { size: 12 }),
 			k.anchor("center"),
-			k.pos(0, 54),
-			k.color(245, 245, 245),
+			k.pos(shift.x, shift.y + artHeight / 2 + 10),
+			k.color(60, 44, 36),
 		])
 		return station
 	}
 
-	const oven = makeStation("pastry", "Oven", 135, 152, [66, 62, 72], [232, 150, 70])
-	const coffeeMachine = makeStation("coffee", "Coffee", 355, 152, [150, 152, 162], [70, 60, 54])
+	const oven = makeStation("pastry", "oven", "Oven", k.vec2(150, 100), 92)
+	const coffeeMachine = makeStation("coffee", "coffee", "Coffee", k.vec2(350, 100), 92)
 	const stations = [oven, coffeeMachine]
 
 	// Prompt shown above the station Nick is standing next to.
@@ -293,22 +312,35 @@ k.scene("game", () => {
 	}
 
 	function spawnCustomer() {
-		if (queue.length >= MAX_QUEUE) return
+		// Never more than the three regulars, and never two of the same person.
+		// (`person`, not `id` — kaboom objects already own a numeric `.id`.)
+		if (k.get("customer").length >= MAX_CUSTOMERS) return
+		const inUse = new Set(k.get("customer").map((c) => c.person))
+		const who = REGULARS.find((r) => !inUse.has(r.id))
+		if (!who) return
+
 		const want = k.choose(["coffee", "pastry"])
+		// The customer object is a white photo frame; the picture rides on top.
 		const cust = k.add([
-			k.sprite("bean", { width: 52, height: 52 }),
+			k.rect(who.w + 6, who.h + 6, { radius: 4 }),
 			k.pos(DOOR_POS.x, DOOR_POS.y),
 			k.anchor("center"),
-			k.area({ scale: 1.1 }),
+			k.color(255, 255, 255),
+			k.outline(3, k.rgb(90, 70, 56)),
+			k.area(),
 			k.z(15),
-			{ want, inQueue: true },
+			{ want, person: who.id, inQueue: true },
 			"customer",
+		])
+		cust.add([
+			k.sprite(who.id, { width: who.w, height: who.h }),
+			k.anchor("center"),
 		])
 
 		// Order bubble above their head.
 		const bubble = cust.add([
 			k.rect(38, 38, { radius: 6 }),
-			k.pos(0, -44),
+			k.pos(0, -(who.h + 6) / 2 - 25),
 			k.anchor("center"),
 			k.color(255, 255, 255),
 			k.outline(3, k.rgb(120, 120, 130)),
@@ -374,7 +406,7 @@ k.scene("game", () => {
 	let money = 0
 
 	k.add([
-		k.text("Nick's Furry Cafe", { size: 22 }),
+		k.text("Nick's Furry Cafe :3", { size: 22 }),
 		k.pos(20, 16),
 		k.color(250, 244, 235),
 		k.z(40),
@@ -435,10 +467,11 @@ k.scene("game", () => {
 	k.onKeyPress("backspace", goBack)
 
 	// --- Kick things off --------------------------------------------------
-	for (let i = 0; i < MAX_QUEUE; i++) {
+	for (let i = 0; i < MAX_CUSTOMERS; i++) {
 		k.wait(i * 0.7, spawnCustomer)
 	}
-	// Keep the queue topped up over time.
+	// Bring the next regular in whenever one has left and a seat at the
+	// counter has opened up.
 	k.loop(3, spawnCustomer)
 })
 
