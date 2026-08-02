@@ -1,8 +1,8 @@
+# Nick's Furry Cafe :3
 
-# Folder structure
+it's a topdown 2D game made with [kaboom.js](https://kaboomjs.com/) where you play as Nick (from Zootopia) and serve food. 
 
-- `src` - source code for your kaboom project
-- `www` - distribution folder, contains your index.html, built js bundle and static assets
+
 
 
 ## Development
@@ -26,4 +26,4 @@ will build your js files into `www/main.js`
 $ npm run bundle
 ```
 
-will build your game and package into a .zip file, you can upload to your server or itch.io / newground etc.
+will build the game and package into a .zip file, that can be uploaded to server or itch.io / newground etc.
